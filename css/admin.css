@@ -1,0 +1,42 @@
+table.deploymintTable {
+	width: auto;
+}
+.deploymintTable td {
+	width: auto;
+}
+.deploymintTable th {
+	font-weight: bold;
+}
+.deployMintWarn {
+	color: #F00;
+}
+.deployMintWarn strong {
+	text-decoration: underline;
+	font-weight: bold;
+}
+.deploymintPadCell {
+	padding: 0 20px 5px 0;
+}
+.deploymintCellHeading {
+	font-weight: bold;
+}
+.depProjWrap {
+	margin: 0px 0 20px 20px;
+	border-bottom: 1px solid #EFEFEF;
+}
+.depSmallHead {
+	margin: 10px 0 5px 0;
+	font-weight: bold;
+	font-size: 14px;
+}
+.depList li {
+	margin-left: 0px;
+}
+h2.depmintHead {
+	padding: 9px 15px 4px 32px;
+	background-image: url(../images/deployMint28.png);
+	background-repeat: no-repeat;
+	background-position: 0 9px;
+	font-size: 23px;
+	line-height: 29px;
+}
