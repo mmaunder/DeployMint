@@ -76,7 +76,6 @@ class deploymint {
 	}
 	public function setup(){
 		global $wpdb;
-		$wpdb->show_errors = true;
 		if(is_admin()){
 			add_action('admin_menu', 'deploymint::adminMenuHandler');
 		}
@@ -99,7 +98,12 @@ class deploymint {
 		add_action('wp_ajax_deploymint_deleteProject', 'deploymint::ajax_deleteProject_callback');
 		add_action('wp_ajax_deploymint_deleteBackups', 'deploymint::ajax_deleteBackups_callback');
 		add_action('wp_ajax_deploymint_updateOptions', 'deploymint::ajax_updateOptions_callback');
-		if(! self::allOptionsSet()){ add_action('admin_notices', 'deploymint::msgDataDir'); }
+		if( !self::allOptionsSet() && is_multisite()){ 
+			add_action('admin_notices', 'deploymint::msgDataDir'); 
+		}
+		if(! is_multisite()){
+			add_Action('admin_notices', 'deploymint::msgMultisite');
+		}
 	}
 	public static function __callStatic($name, $args){
 		$matches = array();
@@ -834,5 +838,6 @@ class deploymint {
 		echo "<p><strong>$message</strong></p></div>";
 	}   
 	public static function msgDataDir(){ deploymint::showMessage("You need to visit the options page for \"DeployMint\" and configure all options including a data directory that is writable by your web server.", true); }
+	public static function msgMultisite(){ deploymint::showMessage("The DeployMint plugin is designed to be used with WordPress MU. You are running an ordinary WordPress installation and need to convert your blog to WordPress MU to use DeployMint. You can learn how to <a href=\"http://codex.wordpress.org/Create_A_Network\" target=\"_blank\">convert this blog to WordPress MU on this page (opens a new window)</a>.", true); }
 }
 ?>
