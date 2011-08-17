@@ -737,7 +737,7 @@ class deploymint {
 	public static function adminMenuHandler(){
 		global $wpdb;
 		add_submenu_page("DeployMint", "Manage Projects", "Manage Projects", "manage_network", "DeployMint", 'deploymint::deploymintMenu');
-		add_menu_page( "DeployMint", "DeployMint", 'manage_network', 'DeployMint', 'deploymint::deploymintMenu', WP_CONTENT_URL . '/plugins/deploymint/images/deployMintIcon.png');
+		add_menu_page( "DeployMint", "DeployMint", 'manage_network', 'DeployMint', 'deploymint::deploymintMenu', WP_PLUGIN_URL . '/DeployMint/images/deployMintIcon.png');
 		$projects = $wpdb->get_results($wpdb->prepare("select id, name from dep_projects where deleted=0"), ARRAY_A);
 		for($i = 0; $i < sizeof($projects); $i++){
 			add_submenu_page("DeployMint", "Proj: " . $projects[$i]['name'], "Proj: " . $projects[$i]['name'], "manage_network", "DeployMintProj" . $projects[$i]['id'], 'deploymint::projectMenu' . $projects[$i]['id']);
