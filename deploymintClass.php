@@ -347,7 +347,7 @@ class deploymint {
 		get_currentuserinfo();
 		$commitUser = $current_user->user_firstname . ' ' . $current_user->user_lastname . ' <' . $current_user->user_email . '>';
 		$commitOut2 = self::mexec("$git commit --author=\"$commitUser\" -a -F \"$tmpfile\" 2>&1", $dir);
-		//unlink($tmpfile);
+		unlink($tmpfile);
 		if(! preg_match('/files changed/', $commitOut2)){
 			self::ajaxError("git commit failed. The output we got was: $commitOut2");
 		}
