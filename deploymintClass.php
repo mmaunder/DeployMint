@@ -36,7 +36,7 @@ class deploymint {
 		if(mysql_error($dbh)){ die("Database error creating table for DeployMint: " . mysql_error($dbh)); }
 		$options = self::getOptions();
 		foreach(array('git', 'mysql', 'mysqldump') as $n){
-			$options[$n] = $options[$n] ? $options[$n] : trim(`which $n`);
+			$options[$n] = $options[$n] ? $options[$n] : trim(self::mexec("which $n") );
 		}
 		if(! array_key_exists('numBackups', $options)){ $options['numBackups'] = 5; }
 		if(! array_key_exists('datadir', $options)){ $options['datadir'] = ""; }
@@ -150,7 +150,7 @@ class deploymint {
 		if(! @mkdir($finaldir, 0755)){
 			die(json_encode(array( 'err' => "Could not create directory $finaldir")));
 		}
-		$git1 = `cd $finaldir ; $git init ; $git add . ;`;
+		$git1 = self::mexec("$git init ; $git add . ", $finaldir);
 		$wpdb->query($wpdb->prepare("insert into dep_projects (ctime, name, dir) values (unix_timestamp(), %s, %s)", $_POST['name'], $fulldir));
 		die(json_encode(array( 'ok' => 1 )));
 	}
@@ -274,7 +274,7 @@ class deploymint {
 		if(! is_dir($dir)){
 			self::ajaxError("The directory " . $dir . " for this project doesn't exist for some reason. Did you delete it?");
 		}
-		$branchOut = `cd $dir ; $git branch 2>&1`;
+		$branchOut = self::mexec("$git branch 2>&1", $dir);
 		if(preg_match('/fatal/', $branchOut)){
 			self::ajaxError("The directory $dir is not a valid git repository. The output we received is: $branchOut");
 		}
@@ -286,7 +286,7 @@ class deploymint {
 		if(array_key_exists($name, $bdup)){
 			self::ajaxError("A snapshot with the name $name already exists. Please choose another.");
 		}
-		$cout1 = `cd $dir ; $git checkout master 2>&1`;
+		$cout1 = self::mexec("$git checkout master 2>&1", $dir);
 		//Before we do our initial commit we will get an error trying to checkout master because it doesn't exist.
 		if( ! preg_match("/(?:Switched to branch|Already on|error: pathspec 'master' did not match)/", $cout1) ){
 			self::ajaxError("We could not switch the git repository in $dir to 'master'. The output was: $cout1");
@@ -303,7 +303,7 @@ class deploymint {
 			self::ajaxError("We could not write to deployData.txt in the directory $dir");
 		}
 		fclose($fh2);
-		$prefixOut = `cd $dir ; $git add deployData.txt 2>&1`;
+		$prefixOut = self::mexec("$git add deployData.txt 2>&1", $dir);
 
 		$siteURLRes = $wpdb->get_results($wpdb->prepare("select option_name, option_value from $prefix" . "options where option_name = 'siteurl'"), ARRAY_A);
 		$siteURL = $siteURLRes[0]['option_value'];
@@ -315,16 +315,16 @@ class deploymint {
 			$tableName = $prefix . $t;
 			$path = $dir . $tableFile;
 			$dbuser = DB_USER; $dbpass = DB_PASSWORD; $dbhost = DB_HOST; $dbname = DB_NAME;
-			$o1 = `cd $dir ; $mysqldump --skip-comments --extended-insert --complete-insert --skip-comments -u $dbuser -p$dbpass -h $dbhost $dbname $tableName > $path 2>&1`;
+			$o1 = self::mexec("$mysqldump --skip-comments --extended-insert --complete-insert --skip-comments -u $dbuser -p$dbpass -h $dbhost $dbname $tableName > $path 2>&1", $dir);
 			if(preg_match('/\w+/', $o1)){
 				array_push($dumpErrs, $o1);
 			} else {
 
-				$grepOut = `grep CREATE $path 2>&1`;
+				$grepOut = self::mexec("grep CREATE $path 2>&1");
 				if(! preg_match('/CREATE/', $grepOut)){
 					array_push($dumpErrs, "We could not create a valid table dump file for $tableName");
 				} else {
-					$gitAddOut = `cd $dir ; $git add $tableFile 2>&1`;
+					$gitAddOut = self::mexec("$git add $tableFile 2>&1", $dir);
 					if(preg_match('/\w+/', $gitAddOut)){
 						self::ajaxError("We encountered an error running '$git add $tableFile' the error was: $gitAddOut");
 					}
@@ -332,7 +332,7 @@ class deploymint {
 			}
 		}
 		if(sizeof($dumpErrs) > 0){
-			$resetOut = `cd $dir ; $git reset --hard HEAD 2>&1`;
+			$resetOut = self::mexec("$git reset --hard HEAD 2>&1", $dir);
 			if(! preg_match('/HEAD is now at/', $resetOut)){
 				self::ajaxError("Errors occured during mysqldump and we could not revert the git repository in $dir back to it's original state using '$git reset --hard HEAD'. The output we got was: " . $resetOut);
 			}
@@ -346,12 +346,12 @@ class deploymint {
 		global $current_user;
 		get_currentuserinfo();
 		$commitUser = $current_user->user_firstname . ' ' . $current_user->user_lastname . ' <' . $current_user->user_email . '>';
-		$commitOut2 = `cd $dir ; $git commit --author="$commitUser" -a -F "$tmpfile" 2>&1`;
+		$commitOut2 = self::mexec("$git commit --author=\"$commitUser\" -a -F \"$tmpfile\" 2>&1", $dir);
 		//unlink($tmpfile);
 		if(! preg_match('/files changed/', $commitOut2)){
 			self::ajaxError("git commit failed. The output we got was: $commitOut2");
 		}
-		$brOut2 = `cd $dir ; $git branch $name 2>&1 `;
+		$brOut2 = self::mexec("$git branch $name 2>&1 ", $dir);
 		if(preg_match('/\w+/', $brOut2)){
 			self::ajaxError("We encountered an error running '$git branch $name' the output was: $brOut2");
 		}
@@ -420,7 +420,7 @@ class deploymint {
 		if(! is_dir($dir)){
 			self::ajaxError("The directory " . $dir . " for this project doesn't exist for some reason. Did you delete it?");
 		}
-		$co1 = `cd $dir ; $git checkout $name 2>&1`;
+		$co1 = self::mexec("$git checkout $name 2>&1", $dir);
 		if(! preg_match('/(?:Switched|Already)/', $co1)){
 			self::ajaxError("We could not find snapshot $name in the git repository. The error was: $co1");
 		}
@@ -460,14 +460,14 @@ class deploymint {
 		}
 		$wpdb->query($wpdb->prepare("create database $tmpDBName"));
 		$dbuser = DB_USER; $dbpass = DB_PASSWORD; $dbhost = DB_HOST; $dbname = DB_NAME;
-		$slurp1 = `cd $dir ; cat *.sql | $mysql -u $dbuser -p$dbpass -h $dbhost $tmpDBName `;
+		$slurp1 = self::mexec("cat *.sql | $mysql -u $dbuser -p$dbpass -h $dbhost $tmpDBName ", $dir);
 		if(preg_match('/\w+/', $slurp1)){
 			self::ajaxError("We encountered an error importing the data files from snapshot $name. The error was: " . substr($slurp1, 0, 100));
 		}
 		$dbh = mysql_connect( $dbhost, $dbuser, $dbpass, true );
 		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 		if(! mysql_select_db($tmpDBName, $dbh)){ self::ajaxError("Could not select database $tmpDBName : " . mysql_error($dbh)); }
-		$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); error_log(__LINE__ . " CURRENT DB: " . $curdbrow[0]);
+		$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); 
 		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 		$destSiteURL = $options['siteurl'];
 		$res4 = mysql_query("select option_value from $sourceTablePrefix" . "options where option_name='siteurl'", $dbh);
@@ -524,7 +524,7 @@ class deploymint {
 					mysql_query("update $sourceTablePrefix" . "comments set comment_post_ID=" . $pNameMap[$row['comment_post_ID']] . " where comment_ID=" . $row['comment_ID'], $dbh);
 					if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 				} else { //Otherwise delete the comment because it is associated with a post on the destination which does not exist in the source we're about to deploy
-					mysql_query("delete from $sourceTablePrefix" . "comments where coment_ID=" . $row['comment_ID'], $dbh);
+					mysql_query("delete from $sourceTablePrefix" . "comments where comment_ID=" . $row['comment_ID'], $dbh);
 					if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 				}
 			}
@@ -539,7 +539,7 @@ class deploymint {
 			}
 		}
 		if(! mysql_select_db($dbname, $dbh)){ self::ajaxError("Could not select database $dbname : " . mysql_error($dbh)); }
-		$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); error_log(__LINE__ . " CURRENT DB: " . $curdbrow[0]);
+		$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); 
 		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 		$res14 = mysql_query("show tables", $dbh);
 		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
@@ -552,7 +552,7 @@ class deploymint {
 		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 		if(! mysql_select_db($backupDBName, $dbh)){ self::ajaxError("Could not select database $backupDBName : " . mysql_error($dbh)); }
 		error_log("BACKUPDB: $backupDBName");
-		$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); error_log(__LINE__ . " CURRENT DB: " . $curdbrow[0]);
+		$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); ;
 
 		foreach($allTables as $t){
 			#We're taking across all tables including dep_ tables just so we have a backup. We won't deploy dep_ tables though
@@ -585,7 +585,7 @@ class deploymint {
 		if(mysql_error($dbh)){ self::ajaxError("A database error occured: " . substr(mysql_error($dbh), 0, 200)); }
 
 		if(! mysql_select_db($tmpDBName, $dbh)){ self::ajaxError("Could not select database $tmpDBName : " . mysql_error($dbh)); }
-		$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); error_log(__LINE__ . " CURRENT DB: " . $curdbrow[0]);
+		$curdbres = mysql_query("select DATABASE()", $dbh); $curdbrow = mysql_fetch_array($curdbres, MYSQL_NUM); 
 
 		$renames = array();
 		foreach(self::$wpTables as $t){
@@ -609,7 +609,7 @@ class deploymint {
 		$res = $wpdb->get_results($wpdb->prepare("select dir from dep_projects where id=%d", $pid), ARRAY_A);
 		$dir = $res[0]['dir'];
 		$fulldir = $datadir . $dir;
-		$logOut = `cd $fulldir ; $git checkout $snapname >/dev/null 2>&1 ; $git log -n 1 2>&1 ; $git checkout master >/dev/null 2>&1`;
+		$logOut = self::mexec("$git checkout $snapname >/dev/null 2>&1 ; $git log -n 1 2>&1 ; $git checkout master >/dev/null 2>&1", $fulldir);
 		$logOut = preg_replace('/^commit [0-9a-fA-F]+[\r\n]+/', '', $logOut);
 		if(preg_match('/fatal: bad default revision/', $logOut)){
 			die(json_encode(array('desc' => '' )));
@@ -628,7 +628,7 @@ class deploymint {
 		if(! is_dir($dir)){
 			self::ajaxError("The directory $dir for this project does not exist.");
 		}
-		$bOut = `cd $dir ; $git branch 2>&1`;
+		$bOut = self::mexec("$git branch 2>&1", $dir);
 		$branches = preg_split('/[\r\n\s\t\*]+/', $bOut);
 		$snapshots = array();
 		for($i = 0; $i < sizeof($branches); $i++){
@@ -637,7 +637,7 @@ class deploymint {
 				if($bname == 'master'){
 					continue;
 				}
-				$dateOut = `cd $dir ; $git checkout $bname 2>&1; $git log -n 1 | grep Date 2>&1`;
+				$dateOut = self::mexec("$git checkout $bname 2>&1; $git log -n 1 | grep Date 2>&1", $dir);
 				$m = '';
 				if(preg_match('/Date:\s+(.+)$/', $dateOut, &$m)){
 					$ctime = strtotime($m[1]);
@@ -839,5 +839,19 @@ class deploymint {
 	}   
 	public static function msgDataDir(){ deploymint::showMessage("You need to visit the options page for \"DeployMint\" and configure all options including a data directory that is writable by your web server.", true); }
 	public static function msgMultisite(){ deploymint::showMessage("The DeployMint plugin is designed to be used with WordPress MU. You are running an ordinary WordPress installation and need to convert your blog to WordPress MU to use DeployMint. You can learn how to <a href=\"http://codex.wordpress.org/Create_A_Network\" target=\"_blank\">convert this blog to WordPress MU on this page (opens a new window)</a>.", true); }
+	public static function mexec($cmd, $cwd = './', $env = NULL){
+		$dspec = array(
+				0 => array("pipe", "r"),  //stdin
+				1 => array("pipe", "w"),  //stdout
+				2 => array("pipe", "w") //stderr
+				);
+		$proc = proc_open($cmd, $dspec, $pipes, $cwd);
+		$stdout = stream_get_contents($pipes[1]);
+		$stderr = stream_get_contents($pipes[2]);
+		fclose($pipes[1]);
+		fclose($pipes[2]);
+		$ret = proc_close($proc);
+		return $stdout . $stderr;
+	}
 }
 ?>
